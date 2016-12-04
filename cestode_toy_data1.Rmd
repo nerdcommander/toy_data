@@ -1,0 +1,168 @@
+---
+title: "cestode toy data1"
+author: "brian avery"
+date: "July 7, 2016"
+output: html_document
+---
+```{r echo=FALSE}
+options(width = 99)
+## this is a bunch of formatting stuff that I like echo=FALSE means that it doesn't show in the Rmd
+## uncomment the next line if the htmlTable package hasn't been installed yet, only need to do it once
+# install.packages("htmlTable")
+library(htmlTable)
+```
+## Intro
+Making some test/toy data for Syd to use to start learning/doing some data analysis in R while she gathers data. It's not the best toy data ever, but it's a start.  
+
+### Important considerations:
+<ol><li>we have different sample collection sites
+<li>data was collected over several years
+<li>each site should have a mix of infected and uninfected results
+</ol>
+
+### Cestode data code book
+(this test data is also a nice test of the format of the dataset so for now this should be considered a draft)  
+in general in a code book, each column corresponds to a variable, the code book has the following info for each column.  
+this is the format we'll use:
+<li>Column label: the name of the varialbe in the dataset
+<li>Variable: an explanation of what the variable is/measures
+<li>Variable type: numeric, integer, character, logical (Boolean), factor, date, etc.
+<li>Allowable values: list of possible values
+<li>Comments: anything else
+
+**year**
+<li>Column label: year
+<li>Variable: year individual was collected
+<li>Variable type: integer
+<li>Allowable values: 2010-2016
+<li>Comments:  
+
+**site**
+<li>Column label: site
+<li>Variable: site from whence individual was collected
+<li>Variable type: character
+<li>Allowable values: blackrock, statemarina, antelopeisland, sprialjetty
+<li>Comments: 
+
+**ID**
+<li>Column label: ID
+<li>Variable: indentifier of individual, a few letters that identify the site
+<li>Variable type: character
+<li>Allowable values: BR, SM, AI, or SJ followed by a number from 1-200
+<li>Comments: BR=blackrock, SM=statemarina, AI=antelopeisland, SJ=sprialjetty. numbers are individual number within that site
+
+**infected**
+<li>Column label: infected
+<li>Variable: infection status of individual
+<li>Variable type: logical
+<li>Allowable values: TRUE, FALSE
+<li>Comments: TRUE=infected, FALSE=uninfected. this is of course our best call based on the PCR
+
+## Generate the toy data
+
+First we have a lot of numbers etc. to make, then we want to format it into a data frame to make it easy to work with.
+
+```{r}
+# this ensures that the random numbers generated are the same if we re-run the code later
+set.seed(84105)
+
+## build each column, the ID col is complicated so it gets built in 2 pieces here and combined later
+years <- rep(c(2012, 2013), each = 120)
+sites <- rep(c("blackrock", "statemarina", "antelopeisland", "sprialjetty"), each = 30, times = 2)
+IDL <- rep(c("BR", "SM", "AI", "SJ"), each = 30, times = 2)
+IDno <- rep(c(1:30), 8)
+
+## get some infection data, generated from four differently weighted distributions
+## so the different sites might have different outcomes
+inf1a <- sample(c(TRUE, FALSE, NA), 30, replace = TRUE, prob = c(.49, .49, 0.02))
+inf1b <- sample(c(TRUE, FALSE, NA), 30, replace = TRUE, prob = c(.49, .49, 0.02))
+inf1c <- sample(c(TRUE, FALSE, NA), 30, replace = TRUE, prob = c(.49, .49, 0.02))
+inf1d <- sample(c(TRUE, FALSE, NA), 30, replace = TRUE, prob = c(.49, .49, 0.02))
+inf2 <- sample(c(TRUE, FALSE, NA), 30, replace = TRUE, prob = c(.74, .24, 0.02))
+inf3a <- sample(c(TRUE, FALSE, NA), 30, replace = TRUE, prob = c(.44, .54, 0.02))
+inf3b <- sample(c(TRUE, FALSE, NA), 30, replace = TRUE, prob = c(.44, .54, 0.02))
+inf4 <- sample(c(TRUE, FALSE, NA), 30, replace = TRUE, prob = c(.94, .04, 0.02))
+
+## combine into one vector for the infected column
+infected <- c(inf1a, inf1b, inf3a, inf2, inf1c, inf1d, inf3b, inf4)
+```
+
+The `dplyr` and `tidyr` packages are really good for working with data frames. Look them up. Here I'm going to use them to format the numbers generated above into a nice, tidy data frame.
+
+```{r message=FALSE}
+# loads the packages so we can use them, 
+# you need to use install.packages() if you don't have them yet
+library(dplyr)
+library(tidyr)
+```
+
+```{r}
+## build the start of the dataframe out of the first few simulated columns of data
+cestodetoy <- data.frame(year=years, site=sites, IDL=IDL, IDno=IDno)
+
+## combine the 2 pieces of the ID column into 1 piece and remove the old halves
+cestodetoy <- unite(cestodetoy, ID, IDL, IDno, sep = '', remove = TRUE)
+
+## add the infected column
+cestodetoy$infected <- infected
+
+```
+
+Now that the entire data set is built, let's look at it.
+
+```{r}
+# 3 really good, quick ways to see what the data looks like.
+head(cestodetoy)
+str(cestodetoy)
+summary(cestodetoy)
+```
+
+`dplyr` is your new and best-est friend for summarzing data!  
+the pipe symbol `%>%` is super helpful in using `dplyr` for summarizing data since you can string together multiple commands.
+another interesting/weird thing is that `TRUE=1` and `FALSE=0` so you can sum and mean them!
+
+```{r}
+# grouped by site (not years) the "na.rm=TRUE" removes NAs if there are any
+cestodetoy %>% group_by(site) %>% summarise(sum(infected, na.rm=TRUE))
+
+## the mean of infected gives you proportion
+cestodetoy %>% group_by(site) %>% summarise(mean(infected, na.rm=TRUE))
+
+## grouped by site and then year
+cestodetoy %>% group_by(site, year) %>% summarise(sum(infected, na.rm=TRUE))
+cestodetoy %>% group_by(site, year) %>% summarise(mean(infected, na.rm=TRUE))
+```
+
+```{r}
+## write to csv file
+## uncomment the next line if you want to write the data to a csv file
+
+# write.csv(cestodetoy, file = "cestode_toy_dataset1.csv", row.names=FALSE)
+```
+
+Now you can use ggplot2 to make some plots and look at the data. I'll start you off with one simple graph.
+
+```{r}
+# loads the package so we can use it, 
+# you need to use install.packages() if you don't have it yet
+library(ggplot2)
+
+# a simple histogram of the number of infected animals per site
+# should really be proportion, but in this fake example all of the sample sizes are the same
+
+# recreate the summarized data from above, but this time assign it to allinfected
+allinfected <- cestodetoy %>% group_by(site) %>% summarise(sum(infected, na.rm=TRUE))
+allinfected
+
+# the title of the second column that contains the sum of the infected has a terrible name
+# let's fix that
+names(allinfected)[names(allinfected) == "sum(infected, na.rm = TRUE)"] <- "number_infected"
+allinfected
+
+# make the histogram
+ggplot(data=allinfected, aes(x= site, y=number_infected)) +
+  geom_bar(stat="identity") +
+  theme_bw() 
+```
+
+your turn!
